@@ -25,10 +25,13 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
+          SOURCE_REPO="${{ github.event.client_payload.repo || 'Manual Update' }}"
+          SHORT_SHA=$(echo "${{ github.event.client_payload.sha || 'unknown' }}" | cut -c1-7)
+          
           git add .
           if git diff-index --quiet HEAD; then
             echo "No changes to commit"
           else
-            git commit -m "Auto-update submodules: Frontend/Backend"
+            git commit -m "Auto-update: $SOURCE_REPO ($SHORT_SHA)"
             git push
           fi
