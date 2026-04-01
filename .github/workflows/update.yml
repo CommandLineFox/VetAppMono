@@ -16,9 +16,25 @@ jobs:
           submodules: true
           fetch-depth: 0
 
-      - name: Update Submodules to Latest Commit
+      - name: Update Submodules
         run: |
-          git submodule update --remote --recursive
+          REPO_NAME="${{ github.event.client_payload.repo }}"
+          
+          if [ "$REPO_NAME" == "VetAppFrontend" ]; then
+            TARGET_FOLDER="frontend"
+          elif [ "$REPO_NAME" == "VetAppBackend" ]; then
+            TARGET_FOLDER="backend"
+          else
+            TARGET_FOLDER="" 
+          fi
+          
+          if [ -z "$TARGET_FOLDER" ]; then
+            echo "Updating all submodules..."
+            git submodule update --remote --recursive
+          else
+            echo "Updating only: $TARGET_FOLDER (from repository: $REPO_NAME)"
+            git submodule update --remote -- "$TARGET_FOLDER"
+          fi
 
       - name: Create Pull Request
         id: cpr
@@ -32,7 +48,7 @@ jobs:
           base: "main"
           delete-branch: true
 
-      - name: Enable Pull Request Automerge
+      - name: Enable Pull Request Auto-merge
         if: steps.cpr.outputs.pull-request-operation == 'created'
         run: gh pr merge --auto --merge "${{ steps.cpr.outputs.pull-request-number }}"
         env:
