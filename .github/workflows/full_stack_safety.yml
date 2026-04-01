@@ -1,0 +1,51 @@
+name: Full Stack Safety (Mono)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Mono Repo with Submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          token: ${{ secrets.MONOREPO_PAT }}
+
+      - name: Install SOPS
+        run: |
+          curl -Lo sops https://github.com/getsops/sops/releases/download/v3.8.1/sops-v3.8.1.linux.amd64
+          chmod +x sops
+          sudo mv sops /usr/local/bin
+
+      - name: Decrypt All Secrets
+        run: |
+          sops -d --output-type dotenv backend/secrets.enc.yaml | tr -d '\r' > backend/.env
+          sops -d --output-type dotenv frontend/secrets.enc.yaml | tr -d '\r' > frontend/.env
+          cat backend/.env frontend/.env > .env
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+
+      - name: Build and Start Stack
+        run: |
+          docker compose up --build -d
+
+      - name: Wait for Health
+        run: |
+          SERVER_PORT=$(grep SERVER_PORT .env | cut -d '=' -f2 | tr -d '\r')
+          echo "Checking Backend on port: $SERVER_PORT"
+          
+          timeout 120s bash -c "until curl -f http://localhost:${SERVER_PORT}/api/health; do echo 'Wait BE...'; sleep 5; done"
+          timeout 60s bash -c "until curl -f http://localhost:3000; do echo 'Wait FE...'; sleep 5; done"
+
+      - name: Run Cypress
+        uses: cypress-io/github-action@v6
+        with:
+          working-directory: frontend
+          browser: chrome
+        env:
+          CYPRESS_BASE_URL: http://localhost:3000
