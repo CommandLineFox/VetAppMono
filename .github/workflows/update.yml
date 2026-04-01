@@ -20,18 +20,20 @@ jobs:
         run: |
           git submodule update --remote --recursive
 
-      - name: Commit and Push Changes
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          SOURCE_REPO="${{ github.event.client_payload.repo || 'Manual Update' }}"
-          SHORT_SHA=$(echo "${{ github.event.client_payload.sha || 'unknown' }}" | cut -c1-7)
-          
-          git add .
-          if git diff-index --quiet HEAD; then
-            echo "No changes to commit"
-          else
-            git commit -m "Auto-update: $SOURCE_REPO ($SHORT_SHA)"
-            git push
-          fi
+      - name: Create Pull Request
+        id: cpr
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.MONOREPO_PAT }}
+          commit-message: "Auto-update: ${{ github.event.client_payload.repo }} (${{ github.event.client_payload.sha }})"
+          title: "Update Submodules: ${{ github.event.client_payload.repo }}"
+          body: "Automated update of submodules triggered by push to ${{ github.event.client_payload.repo }}."
+          branch: "auto-update-submodules"
+          base: "main"
+          delete-branch: true
+
+      - name: Enable Pull Request Automerge
+        if: steps.cpr.outputs.pull-request-operation == 'created'
+        run: gh pr merge --auto --merge "${{ steps.cpr.outputs.pull-request-number }}"
+        env:
+          GH_TOKEN: ${{ secrets.MONOREPO_PAT }}
