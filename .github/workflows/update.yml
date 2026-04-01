@@ -28,7 +28,7 @@ jobs:
           commit-message: "Auto-update: ${{ github.event.client_payload.repo }} (${{ github.event.client_payload.sha }})"
           title: "Update Submodules: ${{ github.event.client_payload.repo }}"
           body: "Automated update of submodules triggered by push to ${{ github.event.client_payload.repo }}."
-          branch: "auto-update-submodules"
+          branch: "auto-update-${{ github.event.client_payload.repo || 'manual' }}"
           base: "main"
           delete-branch: true
 
