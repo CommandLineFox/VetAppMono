@@ -2,7 +2,7 @@
 .idea/
 
 # Environment
-.env
+*.env
 
 # Secrets
 *.txt
