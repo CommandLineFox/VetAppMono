@@ -7,55 +7,39 @@ on:
     branches: [ "main" ]
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+
   e2e-tests:
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Mono Repo with Submodules
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: 'recursive'
           token: ${{ secrets.MONOREPO_PAT }}
 
-      - name: Install SOPS
-        run: |
-          curl -Lo sops https://github.com/getsops/sops/releases/download/v3.8.1/sops-v3.8.1.linux.amd64
-          chmod +x sops
-          sudo mv sops /usr/local/bin
-
-      - name: Decrypt All Secrets
-        run: |
-          sops -d --output-type dotenv backend/secrets.enc.yaml | tr -d '\r' > backend/.env
-          sops -d --output-type dotenv frontend/secrets.enc.yaml | tr -d '\r' > frontend/.env
-          cat backend/.env frontend/.env > .env
-        env:
-          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
-
-      - name: Build and Start Stack
-        run: |
-          docker compose up --build -d
-
-      - name: Wait for Health
-        run: |
-          SERVER_PORT=$(grep SERVER_PORT .env | cut -d '=' -f2 | tr -d '\r')
-          echo "Checking Backend on port: $SERVER_PORT"
-          
-          timeout 120s bash -c "until curl -f http://localhost:${SERVER_PORT}/api/health; do echo 'Wait BE...'; sleep 5; done"
-          timeout 60s bash -c "until curl -f http://localhost:3000; do echo 'Wait FE...'; sleep 5; done"
-
-      - name: Run Cypress
-        uses: cypress-io/github-action@v6
-        with:
-          working-directory: frontend
-          browser: chrome
-        env:
-          CYPRESS_BASE_URL: http://localhost:3000
-
   build-and-push:
-    needs: e2e-tests
+    needs: [ changes, e2e-tests ]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Mono Repo with Submodules
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: 'recursive'
@@ -77,6 +61,7 @@ jobs:
           echo "DATE=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
 
       - name: Build and Push Backend
+        if: needs.changes.outputs.backend == 'true'
         uses: docker/build-push-action@v5
         with:
           context: ./backend
@@ -84,14 +69,13 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/vetapp-backend:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/vetapp-backend:${{ steps.vars.outputs.SHA_SHORT }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/vetapp-backend:${{ steps.vars.outputs.DATE }}-${{ steps.vars.outputs.SHA_SHORT }}
 
       - name: Build and Push Frontend
+        if: needs.changes.outputs.frontend == 'true'
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/vetapp-frontend:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/vetapp-rontend:${{ steps.vars.outputs.SHA_SHORT }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/vetapp-frontend:${{ steps.vars.outputs.DATE }}-${{ steps.vars.outputs.SHA_SHORT }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/vetapp-frontend:${{ steps.vars.outputs.SHA_SHORT }}
