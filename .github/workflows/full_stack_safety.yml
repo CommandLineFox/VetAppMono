@@ -93,5 +93,5 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/vetapp-frontend:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/vetapp-rontend:${{ steps.vars.outputs.SHA_SHORT }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/vetapp-frontend:${{ steps.vars.outputs.SHA_SHORT }}
             ${{ secrets.DOCKERHUB_USERNAME }}/vetapp-frontend:${{ steps.vars.outputs.DATE }}-${{ steps.vars.outputs.SHA_SHORT }}
