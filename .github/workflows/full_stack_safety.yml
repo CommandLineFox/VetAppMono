@@ -25,6 +25,7 @@ jobs:
 
   e2e-tests:
     needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Mono Repo with Submodules
