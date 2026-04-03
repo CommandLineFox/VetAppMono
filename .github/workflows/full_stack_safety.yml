@@ -1,4 +1,4 @@
-name: Full Stack Safety (Mono)
+name: Full Stack Safety / Publish
 
 on:
   push:
