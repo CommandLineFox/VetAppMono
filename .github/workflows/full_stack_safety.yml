@@ -185,7 +185,7 @@ jobs:
 
       - name: Join secrets
         run: |
-          cat backend/.env >> .env
+          cat backend/.env > .env
           cat frontend/.env >> .env
 
       - name: Copy files to VPS
