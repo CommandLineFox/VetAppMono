@@ -42,15 +42,29 @@ jobs:
 
       - name: Decrypt Backend Secrets
         run: |
+          set -e
           cd backend
-          sops --decrypt --output-type dotenv secrets.enc.yaml > .env
+          if [ -f secrets.enc.yaml ]; then
+            sops --decrypt --output-type dotenv secrets.enc.yaml > .env
+            echo "Backend .env created, line count: $(wc -l < .env)"
+          else
+            echo "No secrets.enc.yaml found in backend folder!"
+            exit 1
+          fi
         env:
           SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
 
       - name: Decrypt Frontend Secrets
         run: |
+          set -e
           cd frontend
-          sops --decrypt --output-type dotenv secrets.enc.yaml > .env
+          if [ -f secrets.enc.yaml ]; then
+            sops --decrypt --output-type dotenv secrets.enc.yaml > .env
+            echo "Frontend .env created, line count: $(wc -l < .env)"
+          else
+            echo "No secrets.enc.yaml found in frontend folder!"
+            exit 1
+          fi
         env:
           SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
 
