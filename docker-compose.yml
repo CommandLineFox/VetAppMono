@@ -12,9 +12,10 @@ services:
       - pgdata:/var/lib/postgresql/data
     networks:
       - vet-network
+    restart: always
 
   backend:
-    build: ./backend
+    image: aleksabuncic/vetapp-backend:latest
     container_name: vet_backend_app
     ports:
       - "${SERVER_PORT}:${SERVER_PORT}"
@@ -31,14 +32,10 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
     networks:
       - vet-network
+    restart: always
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        - VITE_APP_API_URL=${VITE_APP_API_URL}
-        - VITE_APP_GOOGLE_CLIENT_ID=${VITE_APP_GOOGLE_CLIENT_ID}
+    image: aleksabuncic/vetapp-frontend:latest
     container_name: vet_frontend_app
     ports:
       - "3000:80"
