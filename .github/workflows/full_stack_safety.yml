@@ -103,6 +103,19 @@ jobs:
           submodules: 'recursive'
           token: ${{ secrets.MONOREPO_PAT }}
 
+      - name: Install SOPS
+        run: |
+          curl -Lo sops https://github.com/getsops/sops/releases/download/v3.8.1/sops-v3.8.1.linux.amd64
+          chmod +x sops
+          sudo mv sops /usr/local/bin
+
+      - name: Decrypt Frontend Secrets
+        run: |
+          cd frontend
+          sops --decrypt --output-type dotenv secrets.enc.yaml > .env
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+
       - name: Set up Docker Builds
         uses: docker/setup-buildx-action@v3
 
