@@ -40,21 +40,45 @@ jobs:
           chmod +x sops
           sudo mv sops /usr/local/bin
 
-      - name: Decrypt All Secrets
+      - name: Decrypt Backend Secrets
         run: |
-          sops -d --output-type dotenv backend/secrets.enc.yaml | tr -d '\r' > backend/.env
-          sops -d --output-type dotenv frontend/secrets.enc.yaml | tr -d '\r' > frontend/.env
-          cat backend/.env frontend/.env > .env
+          set -e
+          cd backend
+          if [ -f secrets.enc.yaml ]; then
+            sops --decrypt --output-type dotenv secrets.enc.yaml > .env
+            echo "Backend .env created, line count: $(wc -l < .env)"
+          else
+            echo "No secrets.enc.yaml found in backend folder!"
+            exit 1
+          fi
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+
+      - name: Decrypt Frontend Secrets
+        run: |
+          set -e
+          cd frontend
+          if [ -f secrets.enc.yaml ]; then
+            sops --decrypt --output-type dotenv secrets.enc.yaml > .env
+            echo "Frontend .env created, line count: $(wc -l < .env)"
+          else
+            echo "No secrets.enc.yaml found in frontend folder!"
+            exit 1
+          fi
         env:
           SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
 
       - name: Build and Start Stack
         run: |
+          cd backend
+          docker compose up --build -d
+          
+          cd ../frontend
           docker compose up --build -d
 
       - name: Wait for Health
         run: |
-          SERVER_PORT=$(grep SERVER_PORT .env | cut -d '=' -f2 | tr -d '\r')
+          SERVER_PORT=$(grep SERVER_PORT backend/.env | cut -d '=' -f2 | tr -d '\r')
           echo "Checking Backend on port: $SERVER_PORT"
           
           timeout 120s bash -c "until curl -f http://localhost:${SERVER_PORT}/api/health; do echo 'Wait BE...'; sleep 5; done"
@@ -131,12 +155,38 @@ jobs:
           chmod +x sops
           sudo mv sops /usr/local/bin
 
-      - name: Decrypt Secrets for Production
+      - name: Decrypt Backend Secrets
         run: |
-          sops -d --output-type dotenv backend/secrets.enc.yaml | tr -d '\r' > .env
-          sops -d --output-type dotenv frontend/secrets.enc.yaml | tr -d '\r' >> .env
+          set -e
+          cd backend
+          if [ -f secrets.enc.yaml ]; then
+            sops --decrypt --output-type dotenv secrets.enc.yaml > .env
+            echo "Backend .env created, line count: $(wc -l < .env)"
+          else
+            echo "No secrets.enc.yaml found in backend folder!"
+            exit 1
+          fi
         env:
           SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+
+      - name: Decrypt Frontend Secrets
+        run: |
+          set -e
+          cd frontend
+          if [ -f secrets.enc.yaml ]; then
+            sops --decrypt --output-type dotenv secrets.enc.yaml > .env
+            echo "Frontend .env created, line count: $(wc -l < .env)"
+          else
+            echo "No secrets.enc.yaml found in frontend folder!"
+            exit 1
+          fi
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+
+      - name: Join secrets
+        run: |
+          cat backend/.env >> .env
+          cat frontend/.env >> .env
 
       - name: Copy files to VPS
         uses: appleboy/scp-action@v0.1.7
