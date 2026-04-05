@@ -131,10 +131,11 @@ jobs:
           chmod +x sops
           sudo mv sops /usr/local/bin
 
-      - name: Decrypt Secrets for Production
+      - name: Decrypt All Secrets
         run: |
-          sops -d --output-type dotenv backend/secrets.enc.yaml | tr -d '\r' > .env
-          sops -d --output-type dotenv frontend/secrets.enc.yaml | tr -d '\r' >> .env
+          sops -d --output-type dotenv backend/secrets.enc.yaml | tr -d '\r' > backend/.env
+          sops -d --output-type dotenv frontend/secrets.enc.yaml | tr -d '\r' > frontend/.env
+          cat backend/.env frontend/.env > .env
         env:
           SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
 
