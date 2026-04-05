@@ -128,12 +128,18 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/vetapp-backend:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/vetapp-backend:${{ steps.vars.outputs.SHA_SHORT }}
 
+      - name: Load Frontend Secrets to GitHub Env
+        run: cat frontend/.env >> $GITHUB_ENV
+
       - name: Build and Push Frontend
         if: needs.changes.outputs.frontend == 'true'
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
           push: true
+          build-args: |
+            VITE_APP_API_URL=${{ env.VITE_APP_API_URL }}
+            VITE_APP_GOOGLE_CLIENT_ID=${{ env.VITE_APP_GOOGLE_CLIENT_ID }}
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/vetapp-frontend:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/vetapp-frontend:${{ steps.vars.outputs.SHA_SHORT }}
