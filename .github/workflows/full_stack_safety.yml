@@ -113,3 +113,49 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/vetapp-frontend:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/vetapp-frontend:${{ steps.vars.outputs.SHA_SHORT }}
+
+deploy:
+  needs: build-and-push
+  if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  runs-on: ubuntu-latest
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+        token: ${{ secrets.MONOREPO_PAT }}
+
+    - name: Install SOPS
+      run: |
+        curl -Lo sops https://github.com/getsops/sops/releases/download/v3.8.1/sops-v3.8.1.linux.amd64
+        chmod +x sops
+        sudo mv sops /usr/local/bin
+
+    - name: Decrypt Secrets for Production
+      run: |
+        sops -d --output-type dotenv backend/secrets.enc.yaml | tr -d '\r' > .env
+        sops -d --output-type dotenv frontend/secrets.enc.yaml | tr -d '\r' >> .env
+      env:
+        SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+
+    - name: Copy Files to VPS
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.VPS_IP }}
+        username: ${{ secrets.VPS_USER }}
+        key: ${{ secrets.VPS_SSHKEY }}
+        source: "docker-compose.yml,.env"
+        target: "~/app"
+
+    - name: Execute Remote Deploy
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          cd ~/app
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+          docker compose pull
+          docker compose up -d --remove-orphans
+          docker image prune -f
