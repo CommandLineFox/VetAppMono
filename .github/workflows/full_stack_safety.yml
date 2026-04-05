@@ -184,9 +184,7 @@ jobs:
           SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
 
       - name: Join secrets
-        run: |
-          cat backend/.env > .env
-          cat frontend/.env >> .env
+        run: cat backend/.env frontend/.env > .env
 
       - name: Copy files to VPS
         uses: appleboy/scp-action@v0.1.7
