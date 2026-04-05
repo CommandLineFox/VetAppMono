@@ -40,16 +40,26 @@ jobs:
           chmod +x sops
           sudo mv sops /usr/local/bin
 
-      - name: Decrypt All Secrets
+      - name: Decrypt Backend Secrets
         run: |
-          sops -d --output-type dotenv backend/secrets.enc.yaml | tr -d '\r' > backend/.env
-          sops -d --output-type dotenv frontend/secrets.enc.yaml | tr -d '\r' > frontend/.env
-          cat backend/.env frontend/.env > .env
+          cd backend
+          sops --decrypt --output-type dotenv secrets.enc.yaml > .env
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+
+      - name: Decrypt Frontend Secrets
+        run: |
+          cd frontend
+          sops --decrypt --output-type dotenv secrets.enc.yaml > .env
         env:
           SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
 
       - name: Build and Start Stack
         run: |
+          cd backend
+          docker compose up --build -d
+          
+          cd ../frontend
           docker compose up --build -d
 
       - name: Wait for Health
@@ -131,13 +141,24 @@ jobs:
           chmod +x sops
           sudo mv sops /usr/local/bin
 
-      - name: Decrypt All Secrets
+      - name: Decrypt Backend Secrets
         run: |
-          sops -d --output-type dotenv backend/secrets.enc.yaml | tr -d '\r' > backend/.env
-          sops -d --output-type dotenv frontend/secrets.enc.yaml | tr -d '\r' > frontend/.env
-          cat backend/.env frontend/.env > .env
+          cd backend
+          sops --decrypt --output-type dotenv secrets.enc.yaml > .env
         env:
           SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+
+      - name: Decrypt Frontend Secrets
+        run: |
+          cd frontend
+          sops --decrypt --output-type dotenv secrets.enc.yaml > .env
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+
+      - name: Join secrets
+        run: |
+          cat backend/.env >> .env
+          cat frontend/.env >> .env
 
       - name: Copy files to VPS
         uses: appleboy/scp-action@v0.1.7
